@@ -55,15 +55,8 @@ const adminController = {
 
   getProducts: async (req, res) => {
     try {
-      client.keys('*', (err, keys) => {
-        if (err) throw err;
-        keys.forEach(key => {
-          client.get(key, (err, value) => {
-            if (err) throw err;
-            console.log(`${key}: ${value}`);
-          });
-        });
-      });
+      const keys = await client.sendCommand(["keys","*"]);
+      console.log(keys); // ["aXF","x9U","lOk",...]
 
       const products = await Product.find();
       res.json({ success: true, products });
