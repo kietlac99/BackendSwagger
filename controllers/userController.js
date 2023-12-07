@@ -112,6 +112,7 @@ const userController = {
       await product.save();
 
       res.json({ success: true, message: 'Product purchased successfully' });
+
     } catch (error) {
       res.status(500).json({ success: false, message: 'Internal Server Error' });
     }

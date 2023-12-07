@@ -68,6 +68,65 @@ const adminController = {
 
   /**
    * @swagger
+   * /admin/find-productId/{productId}:
+   *  get:
+   *    summary: Find a product by Id
+   *    tags: [Admin]
+   *    parameters:
+   *      - in: path
+   *        name: productId
+   *        required: true
+   *        description: Id of the product to find
+   *        schema:
+   *          type: string
+   *    responses:
+   *      200:
+   *        description: the product was found
+   *        content:
+   *          application/json:
+   *            schema:
+   *              $ref: '#/components/schemas/Product'
+   *      404:
+   *        description: Product not found
+   *      500:
+   *        description: Internal Server Error
+   */
+
+  getProductsById: async (req, res) => {
+    try {
+      const cacheKey = `product:${req.params.productId}`;
+      const a = await client.get(cacheKey);
+      
+      console.log(a);
+    
+      if ( a == null)
+      {
+        const productId = req.params.productId; 
+        const findProduct = await Product.findById(productId);
+
+        if (!findProduct) {
+          return res.status(404).json({success: false, message: 'Product not found!' });
+        }
+
+        res.json({ success: true, findProduct, source: 'Mongo'});
+        client.setEx(`product:${findProduct._id}`, 300, JSON.stringify(findProduct), (err, reply) => {
+          if (err) {
+            console.error('Error saving product to Redis:', err);
+          } else {
+            console.log('Product saved to Redis:', reply);
+          }
+        });
+      } else {
+        res.json({ success: true, a, source: 'Cache'});
+      }
+    } catch (error) {
+      console.log(error);
+      res.status(500).json({ success: false, message: 'Internal Server Error' });
+    }
+  },
+
+  /**
+   * @swagger
    * /admin/find-product/{productName}:
    *  get:
    *    summary: Find a product by name
@@ -81,7 +140,7 @@ const adminController = {
    *          type: string
    *    responses:
    *      200:
-   *        description: the product was successfully updated
+   *        description: the product was found
    *        content:
    *          application/json:
    *            schema:
