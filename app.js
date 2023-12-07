@@ -2,8 +2,22 @@ import mongoose from 'mongoose';
 import express from 'express';
 import redis from 'redis';
 
+
+
+
 mongoose.connect('mongodb://127.0.0.1:27017/yourdatabase', { useNewUrlParser: true, useUnifiedTopology: true});
-//const client = redis.createClient("redis://127.0.0.1:6379");
+
+const client = redis.createClient({
+    url: 'redis://127.0.0.1:6379',
+  });
+
+client.on('error', (err) => {
+  console.error('Error connecting to Redis:', err);
+});
+
+await client.connect();
+
+export { client };
 
 const app = express();
 

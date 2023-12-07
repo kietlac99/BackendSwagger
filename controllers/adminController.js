@@ -1,6 +1,5 @@
 import { Product } from '../models/Product.js';
-import redis from 'redis';
-const client = redis.createClient();
+import { client } from '../app.js';
 
 const adminController = {
 
@@ -56,6 +55,16 @@ const adminController = {
 
   getProducts: async (req, res) => {
     try {
+      client.keys('*', (err, keys) => {
+        if (err) throw err;
+        keys.forEach(key => {
+          client.get(key, (err, value) => {
+            if (err) throw err;
+            console.log(`${key}: ${value}`);
+          });
+        });
+      });
+
       const products = await Product.find();
       res.json({ success: true, products });
     } catch (error) {
@@ -96,6 +105,17 @@ const adminController = {
         stockQuantity,
       });
       await newProduct.save();
+
+      
+        // Sử dụng client.setex để đặt giá trị với hạn chế thời gian tồn tại (TTL)
+        client.setEx(`product:${newProduct._id}`, 3600, JSON.stringify(newProduct), (err, reply) => {
+          if (err) {
+            console.error('Error saving product to Redis:', err);
+          } else {
+            console.log('Product saved to Redis:', reply);
+          }
+        });
+      
 
       res.status(201).json({ success: true, message: 'Product added successfully' });
     } catch (error) {
