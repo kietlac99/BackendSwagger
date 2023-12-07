@@ -68,6 +68,66 @@ const adminController = {
 
   /**
    * @swagger
+   * /admin/find-product/{productName}:
+   *  get:
+   *    summary: Find a product by name
+   *    tags: [Admin]
+   *    parameters:
+   *      - in: path
+   *        name: productName
+   *        required: true
+   *        description: Name of the product to find
+   *        schema:
+   *          type: string
+   *    responses:
+   *      200:
+   *        description: the product was successfully updated
+   *        content:
+   *          application/json:
+   *            schema:
+   *              $ref: '#/components/schemas/Product'
+   *      404:
+   *        description: Product not found
+   *      500:
+   *        description: Internal Server Error
+   */
+
+  getProductsByName: async (req, res) => {
+    try {
+      const productName = req.params.productName; 
+      const findProduct = await Product.findOne({name: productName});
+      
+
+      if (!findProduct) {
+        return res.status(404).json({success: false, message: 'Product not found!' });
+      }
+
+
+      res.json({ success: true, findProduct });
+
+      const cacheKey = `product.${findProduct._id}`;
+      client.exists(cacheKey, (err, ok) => {
+        if (err) throw err;
+        console.log(ok);
+      })
+
+      // client.set(`product:${findProduct._id}`, JSON.stringify(findProduct), (err, reply) => {
+      //   if (err) {
+      //     console.error('Error saving product to Redis:', err);
+      //   } else {
+      //     console.log('Product saved to Redis:', reply);
+      //   }
+      // });
+      
+
+    } catch (error) {
+      console.log(error);
+      res.status(500).json({ success: false, message: 'Internal Server Error' });
+    }
+  },
+
+  /**
+   * @swagger
    * /admin/add-product:
    *  post:
    *    summary: Create a new product
@@ -101,7 +161,7 @@ const adminController = {
 
       
         // Sử dụng client.setex để đặt giá trị với hạn chế thời gian tồn tại (TTL)
-        client.setEx(`product:${newProduct._id}`, 3600, JSON.stringify(newProduct), (err, reply) => {
+        client.set(`product:${newProduct._id}`, JSON.stringify(newProduct), (err, reply) => {
           if (err) {
             console.error('Error saving product to Redis:', err);
           } else {
