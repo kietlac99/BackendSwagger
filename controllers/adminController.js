@@ -103,23 +103,25 @@ const adminController = {
       }
 
 
-      res.json({ success: true, findProduct });
-
-      const cacheKey = `product.${findProduct._id}`;
-      client.exists(cacheKey, (err, ok) => {
-        if (err) throw err;
-        console.log(ok);
-      })
-
-      // client.set(`product:${findProduct._id}`, JSON.stringify(findProduct), (err, reply) => {
-      //   if (err) {
-      //     console.error('Error saving product to Redis:', err);
-      //   } else {
-      //     console.log('Product saved to Redis:', reply);
-      //   }
-      // });
       
 
+      const cacheKey = `product:${findProduct._id}`;
+      const a = await client.get(cacheKey);
+      
+
+      if ( a == null)
+      {
+        res.json({ success: true, findProduct, source: 'Mongo'});
+        client.setEx(`product:${findProduct._id}`, 300, JSON.stringify(findProduct), (err, reply) => {
+          if (err) {
+            console.error('Error saving product to Redis:', err);
+          } else {
+            console.log('Product saved to Redis:', reply);
+          }
+        });
+      } else {
+        res.json({ success: true, a, source: 'Cache'});
+      }
     } catch (error) {
       console.log(error);
       res.status(500).json({ success: false, message: 'Internal Server Error' });
@@ -161,7 +163,7 @@ const adminController = {
 
       
         // Sử dụng client.setex để đặt giá trị với hạn chế thời gian tồn tại (TTL)
-        client.set(`product:${newProduct._id}`, JSON.stringify(newProduct), (err, reply) => {
+        client.setEx(`product:${newProduct._id}`, 300, JSON.stringify(newProduct), (err, reply) => {
           if (err) {
             console.error('Error saving product to Redis:', err);
           } else {
