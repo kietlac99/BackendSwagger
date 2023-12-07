@@ -102,13 +102,9 @@ const adminController = {
         return res.status(404).json({success: false, message: 'Product not found!' });
       }
 
-
-      
-
       const cacheKey = `product:${findProduct._id}`;
       const a = await client.get(cacheKey);
       
-
       if ( a == null)
       {
         res.json({ success: true, findProduct, source: 'Mongo'});
@@ -227,6 +223,31 @@ const adminController = {
       }
 
       res.json({ success: true, product: updatedProduct, message: 'Product updated successfully' });
+
+      const cacheKey = `product:${productId}`;
+      const a = await client.get(cacheKey);
+
+      if (a == null){
+        client.setEx(`product:${productId}`, 300, JSON.stringify(updatedProduct), (err, reply) => {
+          if (err) {
+            console.error('Error saving product to Redis:', err);
+          } else {
+            console.log('Product saved to Redis:', reply);
+          }
+        });
+      } else {
+        client.del(cacheKey);
+        console.log("Product delete successfully!");
+
+        client.setEx(`product:${productId}`, 300, JSON.stringify(updatedProduct), (err, reply) => {
+          if (err) {
+            console.error('Error saving product to Redis:', err);
+          } else {
+            console.log('Product saved to Redis:', reply);
+          }
+        });
+      }
+
     } catch (error) {
       console.log("error: ", error);
       res.status(500).json({ success: false, message: 'Internal Server Error' });
@@ -268,8 +289,21 @@ const adminController = {
 
   deleteProduct: async (req, res) => {
     try {
+      
+
       const productId = req.params.productId;
       await Product.findByIdAndDelete(productId);
+      
+      const cacheKey = `product:${productId}`;
+      const a = await client.get(cacheKey);
+
+      if (a != null) {
+        client.del(cacheKey);
+        console.log("Product delete successfully!");
+      }
+      else{
+        console.log("Product not found in cache!");
+      }
 
       res.json({ success: true, message: 'Product deleted successfully' });
     } catch (error) {
