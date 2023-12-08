@@ -11,12 +11,16 @@ const adminController = {
    *        type: object
    *        required:
    *          - name
+   *          - category
    *          - price
    *          - stockQuantity
    *        properties:
    *          name:
    *            type: string
    *            description: Product name
+   *          category:
+   *            type: string
+   *            description: Product category
    *          price:
    *            type: float
    *            description: Product price
@@ -25,6 +29,7 @@ const adminController = {
    *            description: quantity of the product
    *        example:
    *          name: PS6
+   *          category: gaming
    *          price: 500
    *          stockQuantity: 100
    */
@@ -55,11 +60,9 @@ const adminController = {
 
   getProducts: async (req, res) => {
     try {
-      const keys = await client.sendCommand(["keys","*"]);
-      console.log(keys); // ["aXF","x9U","lOk",...]
-
       const products = await Product.find();
-      res.json({ success: true, products });
+
+      res.json({ success: true, totalProduct: products.length, products });
     } catch (error) {
       console.log(error);
       res.status(500).json({ success: false, message: 'Internal Server Error' });
@@ -240,6 +243,109 @@ const adminController = {
     }
   },
 
+    /**
+   * @swagger
+   * /admin/product-stats:
+   *  get:
+   *    summary: Get products stats
+   *    tags: [Admin]
+   *    responses:
+   *      200:
+   *        description: Products stats found successfully
+   *        content:
+   *          application/json:
+   *            schema:
+   *              $ref: '#/components/schemas/Product'
+   *      404:
+   *        description: Product not found
+   */
+
+  getProductStats: async (req, res) => {
+    try {
+      const stats = await Product.aggregate([
+        { $match: {stockQuantity: {$gte: 50}}},
+        { $group: {
+            _id: '$category',
+            avgQuantity: { $avg: '$stockQuantity'},
+            avgPrice: { $avg: '$price' },
+            minPrice: { $min: '$price' },
+            maxPrice: { $max: '$price' },
+            priceTotal: { $sum: '$price' },
+            productCount: { $sum: 1 },
+        }},
+        { $sort: { minPrice: 1}},
+        { $match: {maxPrice: {$gte: 99.47}}},
+      ]);
+      
+      res.status(200).json({
+        status: 'success',
+        count: stats.length,
+        data: {
+          stats
+        }
+      })
+    } catch(err) {
+      res.status(404).json({
+        status: "fail",
+        message: err.message,
+      })
+    }
+  },
+
+  /**
+   * @swagger
+   * /admin/products-by-category:
+   *  get:
+   *    summary: Find products by category
+   *    tags: [Admin]
+   *    parameters:
+   *      - in: query
+   *        name: productCategory
+   *        required: true
+   *        description: find product by category
+   *        schema:
+   *          type: string
+   *    responses:
+   *      200:
+   *        description: Products stats found successfully
+   *        content:
+   *          application/json:
+   *            schema:
+   *              $ref: '#/components/schemas/Product'
+   *      404:
+   *        description: Product not found
+   */
+
+  getProductByCategory : async (req, res) => {
+    try {
+      const productCategory = req.query.productCategory;
+      const products = await Product.aggregate([
+        { $match: {category: productCategory}},
+        { $group: {
+          _id: productCategory,
+          productCount: { $sum: 1 },
+          products: {$push: '$name'},
+        }},
+        {$addFields: {category: "$_id"}},
+        {$project: {_id: 0}},
+      ]);
+
+
+      res.status(200).json({
+        status: 'success',
+        count: products.length,
+        data: {
+          products
+        }
+      })
+    } catch (err) {
+      res.status(404).json({
+        status: "fail",
+        message: err.message,
+      })
+    }
+  },
+
   /**
    * @swagger
    * /admin/add-product:
@@ -265,9 +371,10 @@ const adminController = {
 
   addProduct: async (req, res) => {
     try {
-      const { name, price, stockQuantity } = req.body;
+      const { name, category, price, stockQuantity } = req.body;
       const newProduct = new Product({
         name,
+        category,
         price,
         stockQuantity,
       });
@@ -326,11 +433,11 @@ const adminController = {
   updateProduct: async (req, res) => {
     try {
       const productId = req.params.productId;
-      const { name, price, stockQuantity } = req.body;
+      const { name, category, price, stockQuantity } = req.body;
 
       const updatedProduct = await Product.findByIdAndUpdate(
         productId,
-        { name, price, stockQuantity },
+        { name, category, price, stockQuantity },
         { new: true } // Return the modified document
       );
 
