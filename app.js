@@ -1,11 +1,9 @@
-import mongoose from 'mongoose';
 import express from 'express';
 import redis from 'redis';
+import morgan from 'morgan'
+import { connectDB } from './db/db.js';
 
 
-
-
-mongoose.connect('mongodb://127.0.0.1:27017/yourdatabase', { useNewUrlParser: true, useUnifiedTopology: true});
 
 const client = redis.createClient({
     url: 'redis://127.0.0.1:6379',
@@ -22,6 +20,8 @@ export { client };
 const app = express();
 
 app.use(express.json());
+
+connectDB();
 
 
 // Admin route

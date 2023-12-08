@@ -127,12 +127,12 @@ const adminController = {
 
   /**
    * @swagger
-   * /admin/find-product/{productName}:
+   * /admin/find-product:
    *  get:
    *    summary: Find a product by name
    *    tags: [Admin]
    *    parameters:
-   *      - in: path
+   *      - in: query
    *        name: productName
    *        required: true
    *        description: Name of the product to find
@@ -153,7 +153,12 @@ const adminController = {
 
   getProductsByName: async (req, res) => {
     try {
-      const productName = req.params.productName; 
+      const productName = req.query.productName; 
+
+      if (!productName) {
+        return res.status(404).json({success: false, message: 'Product name is required in query parameter'});
+      }
+
       const findProduct = await Product.findOne({name: productName});
       
 
@@ -180,6 +185,58 @@ const adminController = {
     } catch (error) {
       console.log(error);
       res.status(500).json({ success: false, message: 'Internal Server Error' });
+    }
+  },
+
+  /**
+   * @swagger
+   * /admin/product/{page}:
+   *  get:
+   *    summary: Go to a directed page
+   *    tags: [Admin]
+   *    parameters:
+   *      - in: path
+   *        name: Page number
+   *        required: true
+   *        description: enter page number to direct to that page
+   *        schema:
+   *          type: integer
+   *    responses:
+   *      200:
+   *        description: Go to a page successfully
+   *        content:
+   *          application/json:
+   *            schema:
+   *              type: object
+   *              properties:
+   *                success:
+   *                  type: boolean
+   *                  description: Indicates whether the operation was successful
+   *                message:
+   *                  type: string
+   *                  description: A message indicating a result of the operation
+   *      400:
+   *        description: Page not found
+   *      500:
+   *        description: Internal server error
+   */ 
+  //pagination
+  paginationProduct: async (req, res) => {
+    try {
+      let perPage = 16; // số lượng sản phẩm xuất hiện trên 1 page
+      let page = req.params.page || 1
+
+      const products = await Product
+        .find()
+        .skip((perPage * page) - perPage) // Trong page đầu tiên sẽ bỏ qua giá trị là 0
+        .limit(perPage)
+        .exec();
+      const count = Math.ceil(await(Product.countDocuments()) / perPage);// đếm có bao nhiêu trang
+
+      res.json({ success: true, product: products, totalPage: count, message: 'Product updated successfully' });
+    } catch (error) {
+      console.error(error);
+      res.status(500).send('Internal Server Error');
     }
   },
 
@@ -348,8 +405,6 @@ const adminController = {
 
   deleteProduct: async (req, res) => {
     try {
-      
-
       const productId = req.params.productId;
       await Product.findByIdAndDelete(productId);
       
@@ -371,6 +426,7 @@ const adminController = {
   },
 
   
+
 };
 
 export { adminController };
