@@ -8,7 +8,9 @@ adminRouter.get('/find-productId/:productId', adminController.getProductsById);
 adminRouter.get('/product/:page', adminController.paginationProduct);
 adminRouter.get('/product-stats', adminController.getProductStats);
 adminRouter.get('/products-by-category', adminController.getProductByCategory);
+adminRouter.get('/users', adminController.getUsers);
 adminRouter.post('/add-product', adminController.addProduct);
+adminRouter.post('/add-user', adminController.addUser);
 adminRouter.put('/update-product/:productId', adminController.updateProduct);
 adminRouter.delete('/delete-product/:productId', adminController.deleteProduct);
 

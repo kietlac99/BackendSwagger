@@ -54,7 +54,7 @@ const swaggerOptions = {
 };
 
 const swaggerSpec = swaggerJSDoc(swaggerOptions);
-app.use('/api-docs', swaggerUI.serve, swaggerUI.setup(swaggerSpec));
+app.use('/', swaggerUI.serve, swaggerUI.setup(swaggerSpec));
 
 app.get('/ping', async (req, res) => { res.send('pong') })
 

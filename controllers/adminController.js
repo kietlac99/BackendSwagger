@@ -1,5 +1,6 @@
 import { Product } from '../models/Product.js';
 import { client } from '../app.js';
+import { userHttp } from '../utils/usersAPI.js';
 
 const adminController = {
 
@@ -7,6 +8,26 @@ const adminController = {
    * @swagger
    * components:
    *   schemas:
+   *    User:
+   *        type: object
+   *        required:
+   *          - userName
+   *          - password
+   *          - email
+   *        properties:
+   *          userName:
+   *            type: string
+   *            description: User name
+   *          password:
+   *            type: string
+   *            description: user password
+   *          email:
+   *            type: string
+   *            description: user email
+   *        example:
+   *          userName: kietlac
+   *          password: 12345Lac
+   *          email: kietlac@gmail.com
    *    Product:
    *        type: object
    *        required:
@@ -348,6 +369,35 @@ const adminController = {
 
   /**
    * @swagger
+   * /admin/users:
+   *  get:
+   *    summary: Return the list of all the users
+   *    tags: [Admin]
+   *    responses:
+   *      200:
+   *        description: The list of the users
+   *        content:
+   *          application/json:
+   *            schema:
+   *              type: array
+   *              items:
+   *                $ref: '#components/schemas/User'
+   */
+
+  getUsers: async(req, res) => {
+    await userHttp.get('/admin/users')
+    .then((data) => {
+      res.status(200).json(data.data)
+    })
+    .catch((error) => {
+      console.log(error);
+      res.status(500).json({ success: false, message: 'Internal Server Error' });
+    });
+  },
+
+
+  /**
+   * @swagger
    * /admin/add-product:
    *  post:
    *    summary: Create a new product
@@ -368,6 +418,7 @@ const adminController = {
    *      500:
    *        description: Some server
    */
+
 
   addProduct: async (req, res) => {
     try {
@@ -396,6 +447,42 @@ const adminController = {
       console.log("error: ",error);
       res.status(500).json({ success: false, message: 'Internal Server Error' });
     }
+  },
+
+  /**
+   * @swagger
+   * /admin/add-user:
+   *  post:
+   *    summary: Create a new user
+   *    tags: [Admin]
+   *    requestBody:
+   *      required: true
+   *      content:
+   *        application/json:
+   *          schema:
+   *            $ref: '#/components/schemas/User'
+   *    responses:
+   *      200:
+   *        description: The user was successfully created
+   *        content:
+   *          schema:
+   *            $ref: '#/components/schemas/User'
+   *      500:
+   *        description: Some server
+   */
+
+  addUser: async (req, res) => {
+    await userHttp.post('/admin/add-user', req.body)
+    .then(({data}) => {
+      console.log(data);
+      res.status(200).json(data);
+    })
+    .catch((error) => {
+      console.log(error.toJSON());
+      res.status(500).json({
+        error: 'Internal server error'
+      })
+    });
   },
 
   /**
