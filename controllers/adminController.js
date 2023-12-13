@@ -1,12 +1,19 @@
 import { Product } from '../models/Product.js';
 import { client } from '../app.js';
 import { userHttp } from '../utils/usersAPI.js';
+import axios from 'axios';
 
 const adminController = {
 
   /**
    * @swagger
    * components:
+   *   securitySchemes:
+   *      BearerAuth:
+   *          type: apiKey
+   *          name: Authorization
+   *          in: header          
+   *          scheme: bearer
    *   schemas:
    *    User:
    *        type: object
@@ -422,6 +429,14 @@ const adminController = {
 
   addProduct: async (req, res) => {
     try {
+      const a = await axios({
+        url: 'http://localhost:8000/admin/auth',
+        method: 'GET',
+        headers: {
+          'Authorization': req.header('Authorization')
+        }
+      });
+           
       const { name, category, price, stockQuantity } = req.body;
       const newProduct = new Product({
         name,
@@ -444,8 +459,10 @@ const adminController = {
 
       res.status(201).json({ success: true, message: 'Product added successfully' });
     } catch (error) {
-      console.log("error: ",error);
-      res.status(500).json({ success: false, message: 'Internal Server Error' });
+      if(error.message.includes('401'))
+        res.status(401).json({ success: false, message: 'Not authorized to access this resource' })
+      else 
+        res.status(500).json({ success: false, message: error.message });
     }
   },
 

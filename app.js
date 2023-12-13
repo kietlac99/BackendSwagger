@@ -49,6 +49,16 @@ const swaggerOptions = {
                 url: "http://localhost:3000",
             },
         ],
+        securityDefinitions: {
+          BearerAuth: {
+              type: 'apiKey',
+              name: 'Authorization',
+              in: 'header',
+              description: 'Enter your bearer token in the format **<token>**',
+              scheme: 'bearer',
+          }
+        },
+        security: [{ BearerAuth: [] }]
     },
     apis: ["./controllers/adminController.js", "./controllers/userController.js"]
 };
