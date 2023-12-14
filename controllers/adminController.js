@@ -2,6 +2,7 @@ import { Product } from '../models/Product.js';
 import { client } from '../app.js';
 import { userHttp } from '../utils/usersAPI.js';
 import axios from 'axios';
+import { Category } from '../models/Category.js';
 
 const adminController = {
 
@@ -15,6 +16,16 @@ const adminController = {
    *          in: header          
    *          scheme: bearer
    *   schemas:
+   *    Category:
+   *        type: object
+   *        required:
+   *          - categoryName
+   *        properties:
+   *          categoryName:
+   *            type: string
+   *            description: Category name
+   *        example:
+   *          categoryName: gaming
    *    User:
    *        type: object
    *        required:
@@ -291,18 +302,30 @@ const adminController = {
   getProductStats: async (req, res) => {
     try {
       const stats = await Product.aggregate([
-        { $match: {stockQuantity: {$gte: 50}}},
-        { $group: {
-            _id: '$category',
-            avgQuantity: { $avg: '$stockQuantity'},
-            avgPrice: { $avg: '$price' },
-            minPrice: { $min: '$price' },
-            maxPrice: { $max: '$price' },
-            priceTotal: { $sum: '$price' },
-            productCount: { $sum: 1 },
-        }},
-        { $sort: { minPrice: 1}},
-        { $match: {maxPrice: {$gte: 99.47}}},
+        {
+          $facet: {
+            categoryStats: [
+              { $match: {stockQuantity: {$gte: 50}}},
+              { $group: {
+                  _id: '$category',
+                  avgQuantity: { $avg: '$stockQuantity'},
+                  avgPrice: { $avg: '$price' },
+                  minPrice: { $min: '$price' },
+                  maxPrice: { $max: '$price' },
+                  priceTotal: { $sum: '$price' },
+                  productCount: { $sum: 1 },
+              }},
+              { $sort: { minPrice: 1}},
+              { $match: {maxPrice: {$gte: 80}}},
+            ],
+            totalProducts: [
+              { $match: { stockQuantity: { $gte: 50 } } },
+              { $count: 'count' }
+            ]
+          }
+        }
+        
+        
       ]);
       
       res.status(200).json({
@@ -400,6 +423,134 @@ const adminController = {
       console.log(error);
       res.status(500).json({ success: false, message: 'Internal Server Error' });
     });
+  },
+
+  /**
+   * @swagger
+   * /admin/category:
+   *  get:
+   *    summary: Get product category info
+   *    tags: [Admin]
+   *    parameters:
+   *      - in: query
+   *        name: productName
+   *        required: true
+   *        description: product name
+   *        schema:
+   *          type: string
+   *    responses:
+   *      200:
+   *        description: Products stats found successfully
+   *        content:
+   *          application/json:
+   *            schema:
+   *              $ref: '#/components/schemas/Category'
+   *      404:
+   *        description: Category not found
+   */
+
+  getCategoryInfo : async (req, res) => {
+    
+
+    try {
+      const productName = req.query.productName;
+      const product = await Product.findOne({name: productName})
+      const productCategory = product.category
+      const category = await Product.aggregate([
+        {
+          $match: {
+            'category': productCategory
+          }
+        },
+        {
+          $lookup: {
+            from: 'Category',
+            localField: 'category',
+            foreignField: 'categoryName',
+            as: 'categoryInfo'
+          }
+        },
+        {
+          $unwind: '$categoryInfo'
+        },
+        {
+          $replaceRoot: { newRoot: '$categoryInfo' }
+        },
+        {
+          $limit: 1  // Giới hạn số lượng documents xuất ra là 1
+        }
+      ])
+
+
+      res.status(200).json({
+        status: 'success',
+        count: category.length,
+        data: {
+          category
+        }
+      })
+    } catch (err) {
+      res.status(404).json({
+        status: "fail",
+        message: 'Product not found',
+      })
+    }
+  },
+
+  /**
+   * @swagger
+   * /admin/search-product:
+   *  get:
+   *    summary: Search product by name or category
+   *    tags: [Admin]
+   *    parameters:
+   *      - in: query
+   *        name: searchTerms
+   *        required: true
+   *        description: search
+   *        schema:
+   *          type: string
+   *    responses:
+   *      200:
+   *        description: Products found successfully
+   *        content:
+   *          application/json:
+   *            schema:
+   *              $ref: '#/components/schemas/Category'
+   *      404:
+   *        description: Product not found
+   */
+
+  getSearchResults: async(req, res) => {
+    try {
+      const searchTerms = req.query.searchTerms
+
+      const searchResults = await Product.aggregate([
+        {
+          $facet: {
+            byName: [
+              { $match: { name: { $regex: searchTerms, $options: 'i' } } },            
+              // { $count: 'count' },
+            ],
+            byCategory: [
+              { $match: { category: { $regex: searchTerms, $options: 'i' } } },
+              // { $count: 'count' },
+            ],
+          }
+        }
+      ])
+
+      res.status(200).json({ 
+        status: 'success',
+        data: {
+          byName: searchResults[0].byName,
+          byCategory: searchResults[0].byCategory,
+        }
+       })
+    } catch(error) {
+      console.log(error.message)
+      res.stats(404).json({status: 'fail', message: error.message})
+    }
   },
 
 
@@ -501,6 +652,40 @@ const adminController = {
       })
     });
   },
+
+  /**
+   * @swagger
+   * /admin/add-category:
+   *  post:
+   *    summary: Create a new category
+   *    tags: [Admin]
+   *    requestBody:
+   *      required: true
+   *      content:
+   *        application/json:
+   *          schema:
+   *            $ref: '#/components/schemas/Category'
+   *    responses:
+   *      200:
+   *        description: The category was successfully created
+   *        content:
+   *          schema:
+   *            $ref: '#/components/schemas/Category'
+   *      500:
+   *        description: Some server
+   */
+
+    addCategory: async(req, res) => {
+      try{
+        const category = new Category(req.body)
+        await category.save()
+        res.status(201).json({ success: true, message: 'Category added successfully', category })
+      } catch(error){
+        console.log(error.message)
+        res.status(500).json({success: false, message: 'Internal Server'})
+      }
+      
+    },
 
   /**
    * @swagger
