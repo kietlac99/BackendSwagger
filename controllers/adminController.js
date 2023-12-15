@@ -587,6 +587,11 @@ const adminController = {
           'Authorization': req.header('Authorization')
         }
       });
+
+      const isAdmin = await axios({
+        url: 'http://localhost:8000/admin/isAdmin',
+        method: 'GET',
+      })
            
       const { name, category, price, stockQuantity } = req.body;
       const newProduct = new Product({
@@ -611,7 +616,12 @@ const adminController = {
       res.status(201).json({ success: true, message: 'Product added successfully' });
     } catch (error) {
       if(error.message.includes('401'))
+      {
         res.status(401).json({ success: false, message: 'Not authorized to access this resource' })
+      }
+      else if(error.message.includes('403')) {
+        res.status(403).json({success: false, message: 'Require Admin Role!'})
+      }
       else 
         res.status(500).json({ success: false, message: error.message });
     }
