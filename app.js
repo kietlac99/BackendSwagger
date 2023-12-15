@@ -2,6 +2,7 @@ import express from 'express';
 import redis from 'redis';
 import morgan from 'morgan'
 import { connectDB } from './db/db.js';
+import { importData } from './data/auto-data.js';
 
 
 
@@ -70,6 +71,16 @@ app.get('/ping', async (req, res) => { res.send('pong') })
 
 // Start the server
 const PORT = 3000;
-app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
-});
+const startServer = async() => {
+  try {
+      importData()
+      
+      app.listen(PORT, () => {
+          console.log(`Server is running on port ${PORT}`);
+      });
+  } catch (error) {
+      console.error('Error starting the server: ', error)
+  }
+}
+
+startServer();
